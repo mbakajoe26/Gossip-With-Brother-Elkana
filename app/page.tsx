@@ -1,6 +1,6 @@
 import { auth } from "@clerk/nextjs/server";
 import { SignInButton } from "@clerk/nextjs";
-import { getSpaceById } from "../utils/twitter";
+import { getLiveSpacesByUsername } from "../utils/twitter";
 
 interface TwitterSpace {
   id: string;
@@ -14,15 +14,12 @@ interface TwitterSpace {
 export default async function Home() {
   const { userId } = await auth();
   
-  // Fetch specific Twitter Space with error handling
+  // Fetch live spaces from @joetechgeek
   let liveSpaces: TwitterSpace[] = [];
   try {
-    const space = await getSpaceById('1kvKpbAmbnDJE');
-    if (space) {
-      liveSpaces = [space];
-    }
+    liveSpaces = await getLiveSpacesByUsername('joetechgeek');
   } catch (error) {
-    console.error("Failed to fetch space:", error);
+    console.error("Failed to fetch spaces:", error);
   }
 
   return (

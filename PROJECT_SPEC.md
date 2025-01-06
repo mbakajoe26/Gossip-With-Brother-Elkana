@@ -5,21 +5,17 @@ A Twitter Space initiative focused on fostering meaningful conversations through
 
 ## Core Features
 ### Twitter Spaces Integration
-- Weekly live sessions (no recordings at the moment but we will add them later)
--English language
+- Weekly live sessions (no recordings)
+- Bilingual support (English primary, Swahili secondary)
 - Guest speaker integration
 - Live-only format to encourage real-time participation
 
 ### Web Application
 #### Phase 1 (MVP)
 - Simple, focused interface
-- Authentication via Clerk (Twitter)
+- Authentication via Clerk (Google & Twitter)
 - Basic reward tracking system
 - Minimal viable features to start
-- homepage does not need authentication
-- homepage shows any ongoing (live) twitter spaces with a redirect link to join the space on twitter (we will need to integrate the twitter api to get the spaces)
--admin can schedule a space and add a guest speaker and users can get email notifications 30 minutes before the space starts
--once logged in, users can view live space and their participants.
 
 ### Reward System
 - Types of Rewards:
@@ -48,7 +44,7 @@ A Twitter Space initiative focused on fostering meaningful conversations through
 ## Technical Implementation
 ### Phase 1: Foundation
 - Next.js web application
-- Clerk authentication (done)
+- Clerk authentication
 - Twitter API integration
 - Basic reward tracking
 
@@ -74,9 +70,13 @@ A Twitter Space initiative focused on fostering meaningful conversations through
 - Community growth
 - Partnership engagement
 
+## Contact
+- Email: omareelkana@gmail.com
+- Twitter: @onsarigo93
+
 ## Next Steps
 1. Implement basic web application
-2. Set up authentication system (done)
+2. Set up authentication system
 3. Integrate Twitter Spaces
 4. Establish initial partnerships
 5. Launch MVP with core features
