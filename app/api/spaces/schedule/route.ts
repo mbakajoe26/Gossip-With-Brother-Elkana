@@ -1,107 +1,103 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { redis, CACHE_KEYS } from '@/utils/redis';
-
-interface ScheduledSpace {
-  id: string;
-  title: string;
-  scheduledFor: string;
-  guestSpeaker: string;
-  description: string;
-  createdAt: string;
-  createdBy: string;
-}
+import { supabase, type ScheduledSpace } from '@/utils/supabase';
 
 export async function POST(request: Request) {
   try {
-    // Check if user is admin
     const { userId } = await auth();
-    if (userId !== process.env.ADMIN_USER_ID) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+    if (!userId || userId !== process.env.ADMIN_USER_ID) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get form data
     const data = await request.json();
-    
-    // Generate unique ID for the space
     const spaceId = `space_${Date.now()}`;
     
     const scheduledSpace: ScheduledSpace = {
       id: spaceId,
-      ...data,
-      createdAt: new Date().toISOString(),
-      createdBy: userId,
+      title: data.title,
+      scheduledfor: data.scheduledFor,
+      guestspeaker: data.guestSpeaker,
+      description: data.description,
+      createdat: new Date().toISOString(),
+      createdby: userId,
     };
 
-    // Store in Redis
-    // Key format: scheduled_space:{spaceId}
+    console.log('Inserting space:', scheduledSpace);
+
+    // Store in Supabase
+    const { error: supabaseError } = await supabase
+      .from('scheduled_spaces')
+      .insert([scheduledSpace]);
+
+    if (supabaseError) {
+      console.error('Supabase error:', supabaseError);
+      throw supabaseError;
+    }
+
+    // Cache in Redis
     await redis.set(
       CACHE_KEYS.SPACE(spaceId),
       scheduledSpace,
-      { ex: 60 * 60 * 24 * 7 } // Expire after 7 days
+      { ex: 60 * 60 } // 1 hour cache
     );
 
-    // Add to list of scheduled spaces
-    await redis.sadd(CACHE_KEYS.SPACES_LIST, spaceId);
+    // Invalidate the list cache to ensure fresh data
+    await redis.del(CACHE_KEYS.SPACES_LIST);
 
-    return NextResponse.json({
-      success: true,
-      space: scheduledSpace
-    });
+    return NextResponse.json({ success: true, space: scheduledSpace });
   } catch (error) {
-    console.error('Error scheduling space:', error);
+    console.error('Detailed error scheduling space:', error);
     return NextResponse.json(
-      { error: 'Failed to schedule space' },
+      { error: 'Failed to schedule space', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     );
   }
 }
 
-// Get all scheduled spaces
 export async function GET() {
   try {
     const { userId } = await auth();
-    if (userId !== process.env.ADMIN_USER_ID) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+    if (!userId || userId !== process.env.ADMIN_USER_ID) {
+      console.log('Unauthorized access attempt:', { userId });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get all space IDs
-    const spaceIds = await redis.smembers(CACHE_KEYS.SPACES_LIST);
-    console.log('Space IDs found:', spaceIds); // Debug log
-    
-    // Get all spaces with error handling
-    const spaces = await Promise.all(
-      spaceIds.map(async (id) => {
-        try {
-          const space = await redis.get<ScheduledSpace>(CACHE_KEYS.SPACE(id));
-          console.log(`Space ${id}:`, space); // Debug log
-          return space;
-        } catch (error) {
-          console.error(`Error fetching space ${id}:`, error);
-          return null;
-        }
-      })
+    // Try cache first
+    const cachedSpaces = await redis.get<ScheduledSpace[]>(CACHE_KEYS.SPACES_LIST);
+    if (cachedSpaces) {
+      console.log('Returning cached spaces');
+      return NextResponse.json({ success: true, spaces: cachedSpaces });
+    }
+
+    console.log('Fetching from Supabase...');
+    // Fetch from Supabase
+    const { data: spaces, error: supabaseError } = await supabase
+      .from('scheduled_spaces')
+      .select('*')
+      .order('scheduledFor', { ascending: true });
+
+    if (supabaseError) {
+      console.error('Supabase error:', supabaseError);
+      throw supabaseError;
+    }
+
+    if (!spaces) {
+      return NextResponse.json({ success: true, spaces: [] });
+    }
+
+    // Cache the result
+    await redis.set(
+      CACHE_KEYS.SPACES_LIST,
+      spaces,
+      { ex: 60 * 5 } // 5 minutes cache
     );
 
-    // Filter out null values and sort by scheduledFor date
-    const validSpaces = spaces
-      .filter((space): space is ScheduledSpace => space !== null)
-      .sort((a, b) => new Date(a.scheduledFor).getTime() - new Date(b.scheduledFor).getTime());
-
-    return NextResponse.json({
-      success: true,
-      spaces: validSpaces
-    });
+    return NextResponse.json({ success: true, spaces });
   } catch (error) {
-    console.error('Detailed error fetching scheduled spaces:', error);
+    console.error('Detailed error fetching spaces:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch scheduled spaces', details: error instanceof Error ? error.message : 'Unknown error' },
+      { error: 'Failed to fetch spaces', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     );
   }

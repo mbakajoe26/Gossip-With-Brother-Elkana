@@ -4,7 +4,7 @@
 - [x] Set up Next.js project
 - [x] Integrate Clerk for authentication
 - [ ] Integrate Twitter API for Spaces
-- [ ] Develop homepage to display live Twitter Spaces
+- [ ] Develop homepage to display live and upcoming Twitter Spaces
 - [ ] Implement admin functionality to schedule spaces and add guest speakers
 - [ ] Set up email notifications for scheduled spaces
 - [ ] Implement basic reward tracking system

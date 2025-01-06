@@ -1,6 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import ScheduleSpaceForm from "./components/ScheduleSpaceForm";
+import { supabase } from "@/utils/supabase";
 
 // Interface for scheduled spaces
 interface ScheduledSpace {
@@ -14,27 +15,27 @@ interface ScheduledSpace {
 
 async function getScheduledSpaces(): Promise<ScheduledSpace[]> {
   try {
-    // Use absolute URL when in production, relative URL in development
-    const baseUrl = process.env.NODE_ENV === 'production' 
-      ? process.env.NEXT_PUBLIC_APP_URL 
-      : 'http://localhost:3000';
+    // Test query first
+    const { data: test, error: testError } = await supabase
+      .from('scheduled_spaces')
+      .select('count');
     
-    const response = await fetch(`${baseUrl}/api/spaces/schedule`, {
-      cache: 'no-store',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
-    
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+    console.log('Test query result:', { test, testError });
+
+    // Main query
+    const { data: spaces, error } = await supabase
+      .from('scheduled_spaces')
+      .select('*')
+      .order('scheduledfor', { ascending: true }); // Note: lowercase column name
+
+    if (error) {
+      console.error('Supabase error:', error);
+      return [];
     }
 
-    const data = await response.json();
-    console.log('Fetched spaces:', data); // Debug log
-    return data.spaces || [];
+    return spaces || [];
   } catch (error) {
-    console.error('Detailed error fetching scheduled spaces:', error);
+    console.error('Error fetching scheduled spaces:', error);
     return [];
   }
 }
